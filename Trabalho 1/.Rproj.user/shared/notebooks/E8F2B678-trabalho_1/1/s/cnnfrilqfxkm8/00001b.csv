@@ -1,0 +1,26 @@
+"0",""
+"0",""
+"0","sumtable(db_pre_processado,"
+"0","         summ = c('min(x)',"
+"0","                  'mean(x)',"
+"0","                  'max(x)'"
+"0","                  ),"
+"0","         out = 'latex'"
+"0","         )"
+"1","\begin{table}[!htbp] \centering \renewcommand*{\arraystretch}{1.1}\caption{Summary Statistics}\resizebox{\textwidth}{!}{
+\begin{tabular}{lrrr}
+\hline
+\hline
+Variable & Min & Mean & Max \\ 
+\hline
+compri\_culmen & 35 & 46 & 60 \\ 
+prof\_culmen & 14 & 18 & 22 \\ 
+compri\_nadadeira & 178 & 205 & 231 \\ 
+massa\_corporal & 3250 & 4547 & 6300\\ 
+\hline
+\hline
+\end{tabular}
+}
+\end{table}
+"
+"0","      "

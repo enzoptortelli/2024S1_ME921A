@@ -1,0 +1,159 @@
+---
+title: "Identificando a quantidade de espécies de pinguim baseado em medidas corporais"
+author: "Enzo Putton Tortelli"
+date: "2024-04-16"
+output:
+  pdf_document: default
+  html_document: default
+encoding: 'UTF-8'
+---
+
+**Atenção: esse é um trabalho de ficção. Consultar as referência para mais detalhes.**
+
+# 1. Introdução e objetivo
+
+
+O continente Antartida se destaca por ser o principal habitat natural dos pinguins.
+A região ___ é de especial interesse, pois é habitada por um grande conglomerado de milhares desses animais[1]. Existe uma suspeita na comunidade ciêntifica local de que esse conglomerado é formado por mais de uma espécie da ave. Dessa forma, esse estudo tem como objetivo identificar a quantidade de espécies presentes nesse grupo aplicando uma técnica de clusterização nas medidas corporais de uma amostra dessa população.
+
+
+# 2. Materiais e métodos
+
+Para atingir o objetivo proposto, foram amostrados 167 penguins macho[ref] desse conglomerado e, juntamente com o seu peso, foram medidas 3 partes de seus corpos: o comprimento da nadadeira, e o comprimento e profundidade do cúlmen (medidas relacionada ao bico).
+
+Depois, removemos, dos dados, valores absurdos e observações incompletas. Com intuito de dar peso iguais as quatro variáveis, realizamos um escalonamento (por valores escolhidos à mão) do peso e do comprimento da nadadeira, e uma centralização de todas elas, para, então, fazer uma análise de componentes principais (PCA).
+
+A PCA é uma técnica para redução da dimensionalidade dos dados. Em poucas palavras, essa técnica faz um mapeamento linear dos dados para um espaço de menor dimensão de maneira que a variância dos dados representada nessa dimensão seja maximizada.
+[ref] https://en.wikipedia.org/wiki/Dimensionality_reduction
+
+Ainda, estudando o resultado da PCA, criamos nosso modelo de cluster empregando o método *k-medoids* com apenas as componentes principais mais importantes, utilizando o método de *Elbow* para decidir o número de clusters apropriado.
+
+Resumidamente, o método *k-medoids* divide os dados em grupos e tenta minimizar, dentro de cada grupo, a distância entre os pontos e o medoid. O medoid de cada cluster é definido, justamente, como a observação que minimiza a soma dessas distâncias. Além disso, esse método permite que sejam usadas diversas definições de distância; nesse trabalho, usei a distância euclidiana. 
+[ref] https://en.wikipedia.org/wiki/K-medoids
+
+O método de *Elbow* 
+
++ elbow plot
+
++ silhueta
+
+<!-- 
+Talvez falar sobre qual método utilizamos pra fazer o elbow plot, mas preciso pesquisar mais sobre isso.
+
+Falar mais sobre o k-medoids
+
+
+-->
+
+
+# 3. Resultados e conclusão
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
+
+```{r bibliotecas}
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(knitr)
+library(kableExtra)
+library(ggbiplot)
+library(vtable)
+```
+
+```{r apagando_enviroment}
+rm(list = ls(all.names = TRUE))
+```
+
+```{r leitura_dados}
+dados_originais <- read_csv("data/penguin.zip")
+```
+Uma primeira análise descritiva dos dados é dada pela **Figura 1**. Nela, é possível observar que as medidas de massa corporal e comprimento da nadadeira estão numa escala maior que as demais variáveis, e, como dito anteriormente, queremos dar peso iguais a elas. Assim, dividimos a massa corporal por 100 e a medida da nadadeira por 10. Depois disso, foi feita uma centralização de todas as variáveis. O resultado pode ser visto na **Figura 2**.
+```{r limpeza_dados, include = TRUE}
+db_pre_processado <- dados_originais %>%
+  drop_na %>%
+  filter(flipper_length_mm > 0 & flipper_length_mm < 5000 & sex == 'MALE') %>%
+  select(!sex) %>%
+  rename(compri_culmen = culmen_length_mm,
+         prof_culmen = culmen_depth_mm,
+         compri_nadadeira = flipper_length_mm,
+         massa_corporal = body_mass_g)
+
+kable(db_pre_processado %>%
+        summary(.),
+      format = 'latex'
+)
+
+
+sumtable(db_pre_processado,
+         summ = c('min(x)',
+                  'mean(x)',
+                  'max(x)'
+                  ),
+         out = 'latex'
+         )
+      
+```
+
+
+```{r escalonamento_dados}
+db <- db_pre_processado %>%
+  mutate(compri_nadadeira = compri_nadadeira / 10, massa_corporal = massa_corporal / 100) %>%
+  scale(., scale = FALSE)
+
+summary(db)
+
+```
+Feito isso, criamos nosso modelo de PCA. Podemos ver, pela **Figura 3**, que a componente principal 1 (PC1) é responsável por 78,4% da variância, e a componente principal 2 (PC2), por 19,7%, sendo ambas responsáveis por 98,1% de toda a variância contida nos dados. A **Figura 4** ilustra esse grande acúmulo de percentual da variância nas componentes principais 1 e 2. Portanto, elas foram escolhidas para compor nosso modelo de clusterização. A **Figura 5** nos mostra que altos valores da componente principal 1 estão associados, principalmente, com maior massa corporal, enquanto que maiores valores da componente principal 2 estão assoaciados com maior comprimento do cúlmen. As variáveis profundidade do cúlmen e tamanho da nadadeira possuem pouca relevância no cálculo de PC1 e PC2 quando comparada às outras duas.
+
+```{r pca_e_plot}
+modelPCA <- princomp(db)
+
+summary(modelPCA)
+
+fviz_pca_biplot(modelPCA, label = 'var') +
+  labs(title = 'Biplot - PCA', x = 'PC1', y = 'PC2')
+
+fviz_screeplot(modelPCA) +
+  labs(x = 'Componentes principais', y = 'Porcentagem da variancia explicada')
+
+```
+Com as componentes principais em mãos, para determinar o número ideal de clusters, foi feito uma análise utilizando o Método Elbow, que pode ser visto na **Figura 6**:
+
+Utilizando esse gráfico, chegamos a conclusão de que três clusters oferecem o melhor "custo-benefício" entre a diminuição da soma de quadrado interna total e o número de clusters.
+
+Para finalizar, seguem os gráficos que ilustram o resultado da clusterização por *k-medoids*:
+
+Na **Figura 7**, temos nossas observações inseridas no plano cartesiano. Observa-se que os clusters estão bem definidos. 
+
+O gráfico de silhueta, **Figura 8**, confirma o que foi dito: com uma silhueta média de 0.61, ALGUMA COISA
+
+## Conclusão
+
+Apresentada todas as evidências, concluí-se que a suspeita dos ciêntistas sobre a existência de mais de uma espécie de pinguim no grande conglomerado da região de _____ se confirma.
+
+
+```{r clustering}
+db_ppca <- modelPCA$scores[, 1:2]
+fviz_nbclust(db_ppca, cluster::pam, method = "wss") +
+  labs(title = 'Otimizacao do numero de clusters',
+       x = 'Numero de clusters',
+       y = 'Soma de quadrados interno total')
+
+pmodel_pam <- pam(db_ppca, 3)
+fviz_cluster(pmodel_pam, ggtheme = theme_bw())
+
+plot(pmodel_pam)
+```
+
+
+
+
+# 4. Referências
+
+
+
+
+

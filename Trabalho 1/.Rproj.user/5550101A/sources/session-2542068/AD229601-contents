@@ -1,0 +1,12 @@
+
+f2 <- function(x) {
+  if(x >= 0 & x <= 0.5) {
+    return(2*x)
+  } else return(2*x - 1)
+}
+
+a <- 0.1
+for(i in 1:60) {
+  a <- f2(a)
+  print(a)
+}
